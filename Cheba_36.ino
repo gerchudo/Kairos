@@ -29,11 +29,10 @@
 
 
 
-//////////////////////////////////////////// CHEBA CUBO
   // CHEBA CUBO (pcb en hormigón)
   //LED COLUMN
   #define OUTPUTPIN   D1
-  #define NUM_LEDS    130
+  #define NUM_LEDS    130 // 144
   //ENCODER
   #define ENC_PIN0    D6
   #define ENC_PIN1    D5
@@ -43,8 +42,6 @@
   //Onboard led
   #define LED_PIN     D7
   #define MOTHERLED_POWER    D8
-
-
 
 boolean semaforo = false;
 boolean flagStop = false;
@@ -71,7 +68,7 @@ IPAddress ip;
 
 boolean apMode = false;
 
-const char* passphrase = "melange Cheba"; //////// Pass original //Scan net function
+const char* passphrase = "melange Cheba"; 
 String st; //Scan net function
 String content; //Wifi messages
 int statusCode;
@@ -93,7 +90,7 @@ int w1; int w2; int w3; int W4;
 int brightnessStart = 30;
 int brightness = brightnessStart;
 int renderMode=0;
-byte neopix_gamma[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,
+byte neopix_gamma[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,
   1,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  2,  2,  2,  3,  3,  3,  3,  3,  3,  3,  4,  4,  4,  4,  4,  5,  5,  5,
   5,  6,  6,  6,  6,  7,  7,  7,  7,  8,  8,  8,  9,  9,  9, 10, 10, 10, 11, 11, 11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16,
   17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 24, 24, 25, 25, 26, 27, 27, 28, 29, 29, 30, 31, 32, 32, 33, 34, 35, 35, 36,
