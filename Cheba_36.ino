@@ -10,7 +10,7 @@
 
 #include <EEPROM.h>
 
-/*
+
   ///////////  CHEBA 1802
   //LED COLUMN
   #define OUTPUTPIN   D7//
@@ -24,14 +24,14 @@
   //Onboard led
   #define MOTHERLED_POWER    D5 //D8 NO SE PUEDE USAR CON LED PORQUE NO CARLA EL SOFT! o si?
   #define MOTHERLED_WIFI     D8
-  */
+ 
   //PCB CHEBA 1802    //5 arriba (rojo)    //6 verde centro    //8 azul?    //9 blanco
 
 
-
+/*
 //////////////////////////////////////////// CHEBA CUBO
   // CHEBA CUBO (pcb en hormigón)
-  //LED COLUMN
+  //LED COLUMN 
   #define OUTPUTPIN   D1
   #define NUM_LEDS    130
   //ENCODER
@@ -43,7 +43,7 @@
   //Onboard led
   #define LED_PIN     D7
   #define MOTHERLED_POWER    D8
-
+*/
 
 
 boolean semaforo = false;
@@ -108,6 +108,7 @@ Adafruit_NeoPixel column = Adafruit_NeoPixel(NUM_LEDS, OUTPUTPIN, NEO_RGBW + NEO
 
 
 
+unsigned long idleTime=0;
 
 //////////////////////////////////////////////////////////////////////////// ENCODER /
 boolean encMotion;
@@ -119,16 +120,16 @@ volatile int  encLastBrightness = 0;
 
 volatile long encW_b = 0; volatile int encLastW_b = 0;
 volatile long encW_a = 0; volatile int encLastW_a = 0;
+volatile long encPointer = 0; volatile int encLastPointer;
 
-boolean encPointer = false; volatile int encLastPointer = 0;
 
 volatile long hue = 0; volatile int encLastR = 0;
 
 //volatile long encPush = 0; volatile int  encLastPush = 0;
 
-volatile long encWRGB = 0; volatile int  encLastWRGB = 0;
+volatile long encWRGB = 0; volatile int encLastWRGB = 0;
 
-volatile long encZenTime = 0; volatile int  encLastZenTime = 0;
+volatile long encZenTime = 0; volatile int encLastZenTime = 0;
 
 int lastMSB = 0;
 int lastLSB = 0;
@@ -137,9 +138,8 @@ boolean encDrag = false;
 
 int encClic = 0; //Para reconocer clic, doble clic
 unsigned long encClicTime;
-int encClicTimeOut = 500;
-
-
+int encClicTimeOut=500;
+int tocandoMargin=0;
 
 ///////////////////////////////////////// ZENTINELLA / 
 int zenTime;
@@ -184,7 +184,8 @@ void handleInterrupt() {
    switch (encMode) {
     
     case 0:
-            if (!encIsPushing) // CHANGES THE BRIGHTNESS
+            if (!encIsPushing)
+            //////////////////////////////////////////////////////////////////////// CHANGES THE BRIGHTNESS
             { 
               sum  = (encLastBrightness << 2) | encData; //adding it to the previous encData value
               if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) brightness++;
@@ -197,7 +198,7 @@ void handleInterrupt() {
             else
             { 
             encDrag=true;
-            // IF PUSHING, ADDS RGB
+            ////////////////////////////////////////////////////////////////////////// IF PUSHING, ADDS RGB
               int sum  = (encLastWRGB << 2) | encData; //adding it to the previous encData value
               if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) { encWRGB++; }
               if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) { encWRGB--; }
@@ -208,9 +209,35 @@ void handleInterrupt() {
             }
             break;
 
-    case 1: //White line position and length
+    case 1: 
           if (!encIsPushing)
+          //////////////////////////////////////////////////////////////////////////////White line position
           {
+            encDrag = true;
+            sum  = (encLastW_b << 2) | encData; //adding it to the previous encData value
+            if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) encW_b++;
+            if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) encW_b--;
+            encLastW_b = encData; //store this value for next time
+
+            
+            //Chequeos
+            if (encW_b>NUM_LEDS/2) encW_b=NUM_LEDS/2; //El máximo de esta variable es la mitad del lenght pues renderiza para arriba y abajo
+            
+            if (encW_b > NUM_LEDS) encW_b = NUM_LEDS; //Tope variable del encoder encW_b
+
+            //Comprueba si tocó arriba
+            int quedan=NUM_LEDS-encW_a;
+            if (encW_b>quedan) { tocandoMargin=1; encW_a--; } //Toca arriba, baja el puntero
+            if (encW_a<encW_b) { tocandoMargin=2; encW_a++; } //Toca abajo, sube el puntero
+       
+    
+            if (encW_b<=0) encMode=2;
+            
+          }
+          
+          else
+          
+          { //Is pushing
             sum  = (encLastW_a << 2) | encData; //adding it to the previous encData value
             if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) encW_a++;
             if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) encW_a--;
@@ -218,37 +245,27 @@ void handleInterrupt() {
             if (encW_a > NUM_LEDS-encW_b) encW_a = NUM_LEDS-encW_b;
             if (encW_a < encW_b) encW_a = encW_b;
           }
-          else
-          { //Is pushing
-            encDrag = true;
-            sum  = (encLastW_b << 2) | encData; //adding it to the previous encData value
-            if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) encW_b++;
-            if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) encW_b--;
-            if (encW_b>0) encPointer=false;
-            encLastW_b = encData; //store this value for next time
-            if (encW_b > NUM_LEDS) encW_b = NUM_LEDS;
-            
-            if (encW_b+encW_a>NUM_LEDS)
-            {
-              Serial.print ("toca arriba");
-              if (encW_a>NUM_LEDS/2) encW_a--;
-            }
-
-            if (encW_a<encW_b) //toca abajo
-            {
-              Serial.print ("toca abajo");
-              if (encW_a>NUM_LEDS/2) encW_a++;
-            }
-            if (encW_b <= 1)
-            { //Pointer
-              encW_b=1;
-              brightness++;
-              if (brightness>=255) brightness=255;
-              //encPointer=true;
-            }
-            //if (encW_b <= 0) {encPointer=true;} encW_b = 0; //POINTER!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          }
         break;
+
+    case 2:
+          sum  = (encLastPointer << 2) | encData; //adding it to the previous encData value
+          if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) encPointer++;
+          if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) encPointer--;
+          encLastPointer = encData; //store this value for next time
+
+          if (brightness<255)
+          {
+            Serial.print ("Subiendo brillo");
+            brightness++;
+          }
+          
+          if (brightness>=255) brightness=255;
+
+          whitePointer();
+
+                
+        break;
+    
 
     case 4:
           if (!encIsPushing)
@@ -263,7 +280,7 @@ void handleInterrupt() {
             if (encW_a+encW_b>=NUM_LEDS)
               {
                 encMode=1;
-                Serial.println ("Skipping rainbow mode for being the whole column covered by the foreground.");
+                Serial.println ("Skipping rainbow mode by being the whole column covered by the foreground.");
               }
           }
           else
@@ -886,17 +903,18 @@ void loop() {
 
       encIsPushing = false;
       //encPush = 0;
-      Serial.print ("Encoder pressed "); Serial.print (encButtonCount); Serial.println (" cycles");
+      Serial.print ("Encoder pressed "); Serial.print (encButtonCount); Serial.print (" cycles");
       encZenConfigMode = false;
       if (encMode == 10) encMode = 0; //Si estaba en modo configuración, va a modo brillo
       encClic++;
       encClicTime = millis();
 
-      if (encDrag) encClic=0;
+      if (encDrag) {encClic=0; Serial.print (" DRAG!");}
 
       encDrag=false;
       encMotion=true;
       encButtonCount=0;
+      Serial.println ("");
     }
   }
 
@@ -905,7 +923,7 @@ void loop() {
 
 
   // dimEffect
-  if (power == true && dimEffect == true) /////////////////////////////////////////hay q evitar q dimeffect este en true si no tiene q estarlo!!!
+  if (power == true && dimEffect == true) //hay q evitar q dimeffect este en true si no tiene q estarlo! puede interferir con otros efectos
   { //DIM EFFECT
     if (currentMillis < dimEndTime)
     { //Its dimmering
@@ -980,6 +998,7 @@ void loop() {
   //Column print if encoded
   if (encMotion)
   {
+    idleTime = millis();
    //int encPointerTamanio=2;
    
     motherLedPower();
@@ -990,20 +1009,14 @@ void loop() {
     delay (20);
 
     //Pointer Mode Zentinella
-      //if (encW_b<=1) encMode=1;
 
-
-/*
-    //Sets White line //////////////////////////////////////////
-          if (encMode == 3) //Checks if now is pointer
+        //Pointer
+        
+          if (encMode == 2)
           {
-            encW_a = encPointer;
-            encW_b = encPointerTamanio;
-            //whiteLight(encW_a, encW_b); ya lo llama el render
-
-
-            
-          }*/
+            whitePointer();
+          }
+          
     if (!encZenConfigMode) render();    //shows the column
     ////////////////////////////////////////////////////////////
 
@@ -1079,6 +1092,11 @@ void loop() {
 
 void encPrint() //Prints the info of encoder
 {
+
+   
+   
+
+   
   Serial.print("P:"); Serial.print(power);
   Serial.print(", eM:"); Serial.print(encMode);
   Serial.print(", brightness: "); Serial.print(brightness);
@@ -1090,6 +1108,14 @@ void encPrint() //Prints the info of encoder
   Serial.print(", encIsPushing:"); Serial.print(encIsPushing);
 //  Serial.print(", encPush: "); Serial.print(encPush);
   Serial.print("\tZenT: "); Serial.println(encZenTime);
+
+  if (tocandoMargin!=0)
+   {
+    if (tocandoMargin==1) Serial.print ("\ttoca arriba"); 
+    if (tocandoMargin==2) Serial.print ("\ttoca abajo");
+    tocandoMargin=0;
+   }
+   
   encMotion = false;
 }
 
@@ -1879,10 +1905,7 @@ void render() /////////////////////////////////////////////////////////
       whiteLight(encW_a, encW_b);
     }
 
-    if (encPointer)
-    {
-      whitePointer();
-    }
+
       
     if (renderMode==1) //Sin background
     {
@@ -1944,4 +1967,13 @@ void renderConfig()
 
       zenPixelNumber = 0;
     }
+
+void switchEncMode (int modo)
+{
+
+  if (encPointer)    {   encMode=2;   whitePointer();    }
+}
+        
+
+    
     
