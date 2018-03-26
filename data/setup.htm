@@ -1,0 +1,130 @@
+
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cheba settings</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="images/chebalogo196.png">
+</head>
+
+<body>
+  <header class="navbar navbar-default navbar-static-top" id="top" role="banner">
+    <div class="container">
+      <div class="navbar-header">
+        <a class="navbar-brand" href="/">Melange Cheba settings</a>
+      </div>
+    </div>
+  </header>
+  <div class="container">
+    <form class="form-horizontal" >
+      <div class="form-group">
+        <div class="col-sm-1 col-sm-offset-2">
+        <table width="100%" border="0">
+  <tr>
+    <td>
+    
+    
+    <button type="button" class="btn btn-default" id="btnRefresh"><span class="glyphicon glyphicon-refresh" ></span></button>
+    
+    
+    </td>
+    <td>
+
+    	<button type="button" class="btn btn-default"id="btnBack"><span class="glyphicon glyphicon-share-alt" ></span></button>
+     </td>
+    <td>
+          </td>
+          
+           	
+    <td></td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+
+          
+          
+          
+        </div>
+        
+        
+        
+        
+        
+      </div>
+      
+
+        
+      <div class="form-group">
+        <label class="col-sm-2 control-label">Sleep</label>
+        
+        <label id="theLabel1">
+		</label>
+
+
+        <div class="col-sm-6">
+          <div class="btn-group" role="group" aria-label="Power">
+            <button type="button" class="btn btn-default" id="btnSleepOn">On</button>
+            <button type="button" class="btn btn-default" id="btnSleepOff">Off</button>
+
+          </div>
+        </div>
+        
+        
+        <div class="col-sm-6">
+          <div class="btn-group" role="group" aria-label="Power">
+            <div class="col-sm-4">
+          	<p id="status" >Waiting for status...</p>
+        	</div>
+          </div>
+        </div>
+        
+        
+      </div>
+      <div class="form-group">
+        <label for="inputSleep" class="col-sm-2 control-label">Time to sleep</label>
+        <div class="col-sm-6">
+          <div class="input-group">
+            <span class="input-group-addon" id="spanSleep">0</span>
+            <input class="form-control" id="inputSleep" type="range" step="1" min="0" max="240" title="Seconds" />
+          </div>
+        </div>
+      </div>
+      
+      
+      <div class="form-group">
+        <label for="inputWifi" class="col-sm-2 control-label">WiFi SSID / Password</label>
+        <div class="col-sm-6">
+          <div class="input-group">
+            <input name="ssid" type="text" maxlength="32" id="ssid">
+            <input name="pass" type="password" maxlength="32" id="pass">
+            
+            
+   
+            
+            <button type="button" class="btn btn-default" id="btnWiFiSave">save</button>
+            
+            
+            
+            
+          </div>
+        </div>
+      </div>
+      
+      
+      
+    
+
+    </form>
+    
+    
+        
+  </div>
+  <script src="js/scripts.js"></script>
+</body>
+
+</html>
