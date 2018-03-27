@@ -92,7 +92,7 @@ int r; int g; int b;
 int w1; int w2; int w3; int W4;
 int brightnessStart = 30;
 int brightness = brightnessStart;
-int renderMode=0;
+int hideBackground=0;
 byte neopix_gamma[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,
   1,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  2,  2,  2,  3,  3,  3,  3,  3,  3,  3,  4,  4,  4,  4,  4,  5,  5,  5,
   5,  6,  6,  6,  6,  7,  7,  7,  7,  8,  8,  8,  9,  9,  9, 10, 10, 10, 11, 11, 11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16,
@@ -110,6 +110,25 @@ Adafruit_NeoPixel column = Adafruit_NeoPixel(NUM_LEDS, OUTPUTPIN, NEO_RGBW + NEO
 
 unsigned long idleTime=0;
 
+
+
+
+
+
+//Pointer
+//When encMode==2 (pointer mode) it shine the pointer
+int pointerCycle=0;
+int pointerBright=0;
+int pointerLimit=180;
+int pointerMin=0;
+int pointerMax=255;
+boolean pointerGrowing=true;
+
+
+
+
+
+
 //////////////////////////////////////////////////////////////////////////// ENCODER /
 boolean encMotion;
 int encMode=1;
@@ -118,14 +137,13 @@ int encButtonCount;
 //volatile long brightness = 255; //Maximun bright until eeprom read
 volatile int  encLastBrightness = 0;
 
-volatile long encW_b = 0; volatile int encLastW_b = 0;
-volatile long encW_a = 0; volatile int encLastW_a = 0;
+volatile long encLineCentro = 0; volatile int encLastW_b = 0;
+volatile long encLineLength = 0; volatile int encLastW_a = 0;
 volatile long encPointer = 0; volatile int encLastPointer;
-
 
 volatile long hue = 0; volatile int encLastR = 0;
 
-//volatile long encPush = 0; volatile int  encLastPush = 0;
+volatile long encPush = 0; volatile int  encLastPush = 0;
 
 volatile long encWRGB = 0; volatile int encLastWRGB = 0;
 
@@ -172,6 +190,7 @@ boolean eepromScheduleUpdate = false;
 
 
 //////////////////////////////////////////////////////////////////////////////// ENCODER INTERRUPTION
+//////////////////////////////////////////////////////////////////////////////// INTERRUPCIONES POR ENCODER
 void handleInterrupt() {
   encMotion = true;
   int MSB = digitalRead(ENC_PIN1); //MSB = most significant bit
@@ -187,21 +206,22 @@ void handleInterrupt() {
             if (!encIsPushing)
             //////////////////////////////////////////////////////////////////////// CHANGES THE BRIGHTNESS
             { 
+              if (encLineCentro<=0) { encLineCentro=1; Serial.print ("Agranda encLineCentro");   } //Because if not background, line could be 0 and nothing would shown
               sum  = (encLastBrightness << 2) | encData; //adding it to the previous encData value
               if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) brightness++;
               if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) brightness--;
               encLastBrightness = encData; //store this value for next time
-              if (brightness > 255) brightness = 255;
+              if (brightness > 255) brightness=255;
               if (1 <= brightness<=255) power=true;
               if (brightness<=0) { brightness=0; power=false; }
             }
             else
             { 
-            encDrag=true;
+            //encDrag=true;
             ////////////////////////////////////////////////////////////////////////// IF PUSHING, ADDS RGB
               int sum  = (encLastWRGB << 2) | encData; //adding it to the previous encData value
-              if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) { encWRGB++; }
-              if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) { encWRGB--; }
+              if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) { encWRGB++; encPush++;}
+              if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) { encWRGB--; encPush--;}
               encLastWRGB = encData; //store this value for next time
               if (encWRGB > 255) encWRGB = 255;
               if (encWRGB > brightness) brightness=encWRGB;
@@ -213,25 +233,27 @@ void handleInterrupt() {
           if (!encIsPushing)
           //////////////////////////////////////////////////////////////////////////////White line position
           {
-            encDrag = true;
-            sum  = (encLastW_b << 2) | encData; //adding it to the previous encData value
-            if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) encW_b++;
-            if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) encW_b--;
-            encLastW_b = encData; //store this value for next time
 
+            sum  = (encLastW_b << 2) | encData; //adding it to the previous encData value
+            if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) encLineCentro++;
+            if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) encLineCentro--;
+            encLastW_b = encData; //store this value for next time
             
             //Chequeos
-            if (encW_b>NUM_LEDS/2) encW_b=NUM_LEDS/2; //El máximo de esta variable es la mitad del lenght pues renderiza para arriba y abajo
             
-            if (encW_b > NUM_LEDS) encW_b = NUM_LEDS; //Tope variable del encoder encW_b
+            if (encLineCentro>NUM_LEDS/2) encLineCentro=NUM_LEDS/2; //El máximo de esta variable es la mitad del lenght pues renderiza para arriba y abajo
+            if (encLineCentro > NUM_LEDS) encLineCentro = NUM_LEDS; //Tope variable del encoder encLineCentro
 
-            //Comprueba si tocó arriba
-            int quedan=NUM_LEDS-encW_a;
-            if (encW_b>quedan) { tocandoMargin=1; encW_a--; } //Toca arriba, baja el puntero
-            if (encW_a<encW_b) { tocandoMargin=2; encW_a++; } //Toca abajo, sube el puntero
-       
-    
-            if (encW_b<=0) encMode=2;
+            //Comprueba si tocó
+            int quedan=NUM_LEDS-encLineLength;
+            if (encLineCentro>quedan) { tocandoMargin=1; encLineLength--; } //Toca arriba, baja el puntero
+            if (encLineLength<encLineCentro) { tocandoMargin=2; encLineLength++; } //Toca abajo, sube el puntero
+            
+            if (encLineCentro<=0 ) {
+              Serial.println ("Switching to encMode=2 (was on 1)");
+                              encMode=2; //Al pasar de encMode 1 línea a encMode2= puntero
+                              encPointer=encLineLength;
+                            }
             
           }
           
@@ -239,29 +261,44 @@ void handleInterrupt() {
           
           { //Is pushing
             sum  = (encLastW_a << 2) | encData; //adding it to the previous encData value
-            if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) encW_a++;
-            if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) encW_a--;
+            if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) {encLineLength++;encPush++;}
+            if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) {encLineLength--;encPush--;}
             encLastW_a = encData; //store this value for next time
-            if (encW_a > NUM_LEDS-encW_b) encW_a = NUM_LEDS-encW_b;
-            if (encW_a < encW_b) encW_a = encW_b;
+            if (encLineLength > NUM_LEDS-encLineCentro) encLineLength = NUM_LEDS-encLineCentro;
+            if (encLineLength < encLineCentro) encLineLength = encLineCentro;
           }
         break;
 
-    case 2:
+    case 2: //Modo pointer
           sum  = (encLastPointer << 2) | encData; //adding it to the previous encData value
           if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) encPointer++;
           if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) encPointer--;
           encLastPointer = encData; //store this value for next time
 
-          if (brightness<255)
-          {
-            Serial.print ("Subiendo brillo");
-            brightness++;
-          }
-          
-          if (brightness>=255) brightness=255;
+          if (encPointer<0) encPointer=0;
+          if (encPointer>NUM_LEDS) encPointer=NUM_LEDS;
 
-          whitePointer();
+          if (brightness<255)
+            {
+              Serial.print ("Subiendo brillo");
+              brightness++;
+              if (brightness>=255) brightness=255;
+            }
+
+
+
+          if (encIsPushing)
+         
+          {
+            encLineCentro=3;
+            encLineLength=encPointer;
+            encMode=1;
+            encDrag=true;
+           // CAMBIARA EL TIPO DE PUNTERO POR INDEX
+           
+          }
+            
+
 
                 
         break;
@@ -274,10 +311,10 @@ void handleInterrupt() {
             if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) hue++;
             if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) hue--;
             encLastR = encData; //store this value for next time
-            if (hue>511) hue = 511;
+            if (hue>511) hue = 511;//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             if (hue<0) hue = 0;
-            if (renderMode!=0) { switchRenderMode(); Serial.print ("Switching renderMode to 0 to show background");}
-            if (encW_a+encW_b>=NUM_LEDS)
+            if (hideBackground!=0) { switchhideBackground(); Serial.print ("Switching hideBackground to 0 to show background");}
+            if (encLineLength+encLineCentro>=NUM_LEDS)
               {
                 encMode=1;
                 Serial.println ("Skipping rainbow mode by being the whole column covered by the foreground.");
@@ -285,8 +322,20 @@ void handleInterrupt() {
           }
           else
           {
+            sum  = (encLastPush << 2) | encData; //adding it to the previous encData value
+            if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) encPush++;
+            if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) encPush--;
+            encLastPush = encData; //store this value for next time
+
+            if (encPush > 4 || encPush < -4) {
+                  encDrag = true;  //Serial.print ("YA NO APAGA");
+                  //Serial.println ("encDrag=");Serial.println (encDrag);
+                }
+                
+
+            
             //ZOOM
-            encDrag = true;
+            //encDrag = true;
           }
           break;
 
@@ -298,46 +347,48 @@ void handleInterrupt() {
             if (sum == 0b1110) encZenTime--;
             encLastZenTime = encData; //store this value for next time
             if (encZenTime > 10) encZenTime = 10;
-            if (encZenTime < 0) {              encZenTime = 0;            }
+            if (encZenTime < 0) { encZenTime = 0; }
             encZenConfigMode = true;
           }
           else
           {
             
-          encDrag = true;
+          //encDrag = true; //NOO Siempre que presiono, drageo
           }
         break;
+/*
+        //En todos los casos
+        if (encIsPushing)
+         
+          {
+            //Declara el Push/Drag    
+                //Encoder push absolute position
+                int sum  = (encLastPush << 2) | encData; //adding it to the previous encData value
+                if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) {   encPush++;   }
+                if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) {   encPush--;   }
+                
+                encLastPush = encData; //store this value for next time
+            
+            
+                if (encPush > 4 || encPush < -4) {
+                  encDrag = true;  //Serial.print ("YA NO APAGA");
+                  Serial.println ("encDrag=");Serial.println (encDrag);
+                }
+    
+          }
+          
+          
+          */
+          
+         
+
+
+            
+
+        
     }
 
     
- /*
-  if (encIsPushing==true)
-  { //Pushing the button
-
-    // 1 clic + hold / RGB ADDITION IN MODE 0 o 1
-    if (encClic==1 && (encMode==0 || encMode==1))
-    {
-
-    }
-  }*/
-
- /*
-    //Encoder push absolute position
-    int sum  = (encLastPush << 2) | encData; //adding it to the previous encData value
-    if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) {   encPush++;  if (ppp) encWRGB++;  }
-    if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) {   encPush--;  if (ppp) encWRGB--;  }
-    
-    encLastPush = encData; //store this value for next time
-    if (encWRGB > 255) encWRGB = 255;
-    if (encWRGB < 0) encWRGB = 0;
-
-    if (encPush > 4 || encPush < -4) {
-      encDrag = true;  //Serial.print ("YA NO APAGA");
-    }
-    
-
-  }
-*/
 
 
   flagStop = true;
@@ -875,7 +926,7 @@ void loop() {
 //    if (encButtonCount == 0) encPush = 0;
     encButtonCount++;
     //Apaga luego de X ciclos presionado si no se movió el encoder
-    if (encButtonCount==60000 && encDrag == false)
+    if (encButtonCount==60000 && !encDrag)
     {
       if (brightness != 0) apaga();
     }
@@ -898,24 +949,25 @@ void loop() {
   else
   {
 
-    if (encButtonCount > 1)
+    if (encButtonCount > 1) //Acaba de soltarse el botón del encoder
     { //Cierra el ciclo
-
-      encIsPushing = false;
-      //encPush = 0;
+      encIsPushing=false;
+      encPush=0;
       Serial.print ("Encoder pressed "); Serial.print (encButtonCount); Serial.print (" cycles");
       encZenConfigMode = false;
       if (encMode == 10) encMode = 0; //Si estaba en modo configuración, va a modo brillo
       encClic++;
       encClicTime = millis();
 
-      if (encDrag) {encClic=0; Serial.print (" DRAG!");}
+      if (encDrag) {encClic=0; Serial.print (" DRAG! cancela los clic");}
 
       encDrag=false;
+   
       encMotion=true;
       encButtonCount=0;
       Serial.println ("");
     }
+    
   }
 
 
@@ -1012,7 +1064,7 @@ void loop() {
 
         //Pointer
         
-          if (encMode == 2)
+          if (encMode==2)
           {
             whitePointer();
           }
@@ -1045,7 +1097,7 @@ void loop() {
   o/        / \   / \    o/           \o     
  <|         \o/   \o/   <|             v\    
   \\         |     |     \\             <\   
-   _\o__</  / \   / \     _\o__</  _\o__*/   
+   _\o__</  / \   / \     _\o__</  _\o__*/   //Clics
 // Encoder clic action configutation   
   if (encClic != 0)
   {
@@ -1056,23 +1108,28 @@ void loop() {
       if (encClic==1 && !encDrag) { //1Clic
                           switch (encMode)
                           {
-                            case 1: encMode=4; render(); break;
-                            default: encMode=1; //break;
+                            case 1: encMode=4; render(); break; //Modo line a rainbow
+                            case 2: encMode=1; encLineLength=encPointer; encLineCentro=4; render(); Serial.print ("Modo pointer a Line"); break; 
+                            case 4: encMode=1; break; //Modo rainbow a line
+                            case 0: encMode=1; break; //Modo brillo a line. Ojo con poner rainbow (4) porque si render backgroung está desactivado, esto lo activaría!
+                            
+                            //default: encMode=1;//break;
                           }
                         }
-      if (encClic==2 && !encDrag) encMode=0; //Brightness
-      if (encClic==3 && !encDrag) {
+      if (encClic==2 && !encDrag) { encMode=0; render();  } //Brightness
+      if (encClic==3 && !encDrag) switchhideBackground();
+      /*{
                                   if (encMode!=4)
                                     { 
-                                      encMode=4;/*Hue*/
+                                      encMode=4;//Hue
                                     } 
                                   else
                                     {
-                                    switchRenderMode();
+                                    switchhideBackground();
                                     encMode=1;
                                     } 
-                                  }       
-      if (encClic==4 && !encDrag) switchRenderMode();
+                                  }   */    
+      //if (encClic==4 && !encDrag) switchhideBackground();
       if (encClic==5 && !encDrag) showIp();
       if (encClic==6 && !encDrag) zenConfig();
       encClic=0;
@@ -1082,13 +1139,38 @@ void loop() {
 
 
 
+  //PointerShine
+  if (encMode==2)
+  {
+    if (pointerGrowing) pointerCycle++; else pointerCycle--;
+    
+    if (pointerCycle>pointerLimit) pointerGrowing=false; //Invierte el ciclo
+    if (pointerCycle<=pointerMin){ pointerGrowing=true; }//Invierte el ciclo
+
+    pointerBright=pointerMax*(float(pointerCycle)/float(pointerLimit));
+    render();
+
+    /*
+    Serial.println ("POINTER> ");  
+    Serial.print ("pointerBright"); Serial.print (pointerBright);
+    Serial.print (" pointerMax"); Serial.print (pointerMax);
+    Serial.print (" pointerLimit"); Serial.print (pointerLimit);
+    Serial.print (" pointerCycle"); Serial.print (pointerCycle);
+    */
+
+    
+  }
+
+
+
+
 
 
 } //loop
 
 
 
-//Functions
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////Functions //Funciones//////////
 
 void encPrint() //Prints the info of encoder
 {
@@ -1100,13 +1182,14 @@ void encPrint() //Prints the info of encoder
   Serial.print("P:"); Serial.print(power);
   Serial.print(", eM:"); Serial.print(encMode);
   Serial.print(", brightness: "); Serial.print(brightness);
-  Serial.print(", encW_a:"); Serial.print(encW_a); if (encPointer)("(P)");
-  Serial.print(", encW_b:"); Serial.print(encW_b);
-  //Serial.print(", encPointer:"); Serial.print(encPointer);
+  Serial.print(", encLineLength:"); Serial.print(encLineLength); if (encPointer)("(P)");
+  Serial.print(", encLineCentro:"); Serial.print(encLineCentro);
+  Serial.print(", encPointer:"); Serial.print(encPointer);
   Serial.print(", hue: "); Serial.print(hue);
   Serial.print(", encWRGB:"); Serial.print(encWRGB);
+  
   Serial.print(", encIsPushing:"); Serial.print(encIsPushing);
-//  Serial.print(", encPush: "); Serial.print(encPush);
+  Serial.print(", encPush: "); Serial.print(encPush);
   Serial.print("\tZenT: "); Serial.println(encZenTime);
 
   if (tocandoMargin!=0)
@@ -1191,10 +1274,12 @@ void whiteLight(int wLCentro, int wLLength) { //Centro, length //No impact
 
 void whitePointer()
   {
-    uint16_t i=encW_a;
-    column.setPixelColor(i-1, 0, 0, 0, brightness);
-    column.setPixelColor(i, brightness, brightness, brightness, brightness);
-    column.setPixelColor(i+1, 0, 0, 0, brightness);
+    uint16_t i=encPointer;
+    //int secundario=brightness
+    column.setPixelColor(i-1, 0, 0, 0, brightness); //led#1
+    column.setPixelColor(i, pointerBright, pointerBright, pointerBright, brightness); //led#2
+    column.setPixelColor(i+1, 0, 0, 0, brightness); //led#3
+    //column.show();
   }
 
 
@@ -1296,8 +1381,8 @@ void eepromLoadSettings() // EEPROM BASICS 0 A 16, WIFI 16 a 112
   Serial.print ("brightness: "); Serial.println (brightness);
 
   // 1 POINTER/CENTER 2 LENGHT
-  encW_b     = EEPROM.read(1); Serial.print ("encW_b: "); Serial.println (encW_b);
-  encW_a     = EEPROM.read(2); Serial.print ("encW_a: "); Serial.println (encW_a);
+  encLineCentro     = EEPROM.read(1); Serial.print ("encLineCentro: "); Serial.println (encLineCentro);
+  encLineLength     = EEPROM.read(2); Serial.print ("encLineLength: "); Serial.println (encLineLength);
   encPointer = EEPROM.read(3); Serial.print ("encPointer: "); Serial.println (encPointer);
 
   // 4 Zentinella: Time to sleep
@@ -1328,8 +1413,8 @@ void eepromLoadSettings() // EEPROM BASICS 0 A 16, WIFI 16 a 112
   Serial.println ("_____________________________________________");
 
   // 7 renderBackground
-  renderMode = EEPROM.read(7);
-  Serial.print ("renderMode"); Serial.println (renderMode);
+  hideBackground = EEPROM.read(7);
+  Serial.print ("hideBackground"); Serial.println (hideBackground);
 
 
 }
@@ -1338,8 +1423,8 @@ void eepromLoadSettings() // EEPROM BASICS 0 A 16, WIFI 16 a 112
 void eepromUpdate()
 { //Guarda el brillo en la eeprom
   EEPROM.write(0, brightness);
-  EEPROM.write(1, encW_b);
-  EEPROM.write(2, encW_a);
+  EEPROM.write(1, encLineCentro);
+  EEPROM.write(2, encLineLength);
   EEPROM.write(3, encPointer);
   EEPROM.write(4, encZenTime);
   switch (encZenTime) {
@@ -1358,7 +1443,7 @@ void eepromUpdate()
   EEPROM.write(5, hue);
   EEPROM.write(6, encWRGB);
 
-  EEPROM.write(7, renderMode);
+  EEPROM.write(7, hideBackground);
 
   EEPROM.commit();
   eepromScheduleUpdate = false;
@@ -1420,10 +1505,11 @@ void mkPixel(int color, int numero)
 void zenConfig ()
 {
   Serial.println ("Zentinella - Set the time to turn off");
-  encDrag = true;
+  //encDrag = true; ///////////////////////////////////////////////////////////////////////////////////////////////// 
   pulseWhite(0);
   encMode = 10; //Zen Config Mode
-  column.setBrightness(128);
+  renderConfig();
+  column.setBrightness(64);
 
 }
 
@@ -1894,43 +1980,47 @@ void motherLedPower() ////////////////////////////////////////////////////
 
 
 void render() /////////////////////////////////////////////////////////
+
 {
   //Serial.println ("render");
+  column.clear();
   if (power)
   {
-    
-    if (renderMode==0)
+    if (encMode==0 || encMode==1 || encMode==4) //modo brillo o line o rainbow
     {
-      mkRainbow(hue);
-      whiteLight(encW_a, encW_b);
+      if (hideBackground==0) mkRainbow(hue); //Imprime Background en matriz
+      //if (encMode==1)
+      whiteLight(encLineLength, encLineCentro); // Imprime line
     }
 
-
-      
-    if (renderMode==1) //Sin background
+    if (encMode==2) //Modo pointer
     {
-      column.clear();
-      whiteLight(encW_a, encW_b);
-      if (encMode==4) {encMode=1; Serial.println("Switching to encMode=1 for not Background mode active");}
+      if (hideBackground==0) mkRainbow(hue); //Imprime Background en matriz
+      whitePointer();
     }
     
+    //Chequeo, si está en modo rainbow sin bacground, pasa a otro encMode
+    if (hideBackground==1) //Sin background
+      {
+      if (encMode==4) {encMode=0; Serial.println("Switching to encMode=0 for not Background mode active");}
+      }
   }
-  else
-  {
-    column.clear();
-  }
+  
   column.show();
       
 }
 
 
 
-void switchRenderMode() //////////////////////////////////////
+void switchhideBackground() //////////////////////////////////////
 
 {
-  renderMode++;
-  if (renderMode>1) renderMode=0;
-  Serial.print ("RenderMode: ");  Serial.println (renderMode);
+  hideBackground++;
+  if (hideBackground>1) {
+                          hideBackground=0;
+                          if (encMode==4) {encMode=0; Serial.print ("switching to encMode=1 (was in 4) "); }
+                        }
+  Serial.print ("hideBackground: ");  Serial.println (hideBackground);
   render();
    
 }  
@@ -1939,7 +2029,7 @@ void switchRenderMode() //////////////////////////////////////
 void apaga()
 {
   Serial.println("APAGA");
-  encDrag=true;
+  encDrag=true;//////////////////////////////////////////////////////////////////////////////
   power=false;
         
   column.setBrightness(0);
@@ -1950,7 +2040,7 @@ void renderConfig()
 {
       //column.setBrightness(255);
       column.clear();  // Initialize all pixels to 'off'
-      mkRainbow(hue);
+      //mkRainbow(hue);
       //Serial.println ("encZenConfigMode > mkPixel");
       //Prints the 
       if (encZenTime >= 1) mkPixel (0, 5);  // 5"
@@ -1971,7 +2061,7 @@ void renderConfig()
 void switchEncMode (int modo)
 {
 
-  if (encPointer)    {   encMode=2;   whitePointer();    }
+  if (encPointer)    {   encMode=2;   render();    }
 }
         
 
