@@ -76,6 +76,7 @@
     int renderColumnMode=0; //0 normal strip. 1: dual, in the other way second part
 
     //DialLight
+    int dialBrightness=10;
     int dialPointer=0; //va girando
     int dialDirectionClock=true;
     boolean dialRun=true;
@@ -290,6 +291,7 @@ void handleInterrupt() {
         if (encWRGB > brightness) brightness = encWRGB;
         if (encWRGB < 0) encWRGB = 0;
       }
+      if (power) dialShowColumnBrightness(); //Actualiza el brillo en el dial
       break;
 
     case 1:
@@ -460,7 +462,7 @@ void setup() {
   column.setBrightness(brightness);
   column.begin();
 
-  column2.setBrightness(10);
+  column2.setBrightness(dialBrightness);
   column2.begin();
 
       
@@ -933,7 +935,7 @@ void loop() {
   currentMillis = millis();
 
   zenDetected = digitalRead(ZEN_PIN);
-  if (zenDetected == HIGH) zenLastMotion = currentMillis;
+  if (zenDetected==HIGH) zenLastMotion=currentMillis;
 
 
 
@@ -1027,16 +1029,9 @@ if (dialRun)
       column.show();
       motherLedPower();
     }
-
-
-
-
-
-
   }
   else
   {
-
     if (encButtonCount > 1) //Acaba de soltarse el botón del encoder
     { //Cierra el ciclo
       encIsPushing = false;
@@ -1051,17 +1046,12 @@ if (dialRun)
         encClic = 0;
         Serial.print (" DRAG! cancela los clic");
       }
-
       encDrag=false;
-      
       encMotion=true;
       encButtonCount = 0;
       Serial.println ("");
     }
-
   }
-
-
 
 if (zentinella) zenDo();
 
@@ -2089,6 +2079,8 @@ void apaga()
 
   column.setBrightness(0);
   column.show();
+
+  dialRed();
 }
 
 void renderConfig()
@@ -2201,6 +2193,7 @@ void zenDo ()
   { //DIM EFFECT
     if (currentMillis < dimEndTime)
     { //Its dimmering
+      dialShowColumnBrightness(); // Updates the dial brigtness dots
       int quedan = dimEndTime - currentMillis;
       float pasaron; float a; float b; float c;
 
@@ -2245,8 +2238,8 @@ void zenDo ()
         //Arregla porque el brillo queda seteado en columna en 1
         column.setBrightness(0);
         column.show();
-
         brightness = dimInitBright;
+        dialBlue(); ///////////////////////// Dial suspended
       }
       else
       {
@@ -2259,6 +2252,7 @@ void zenDo ()
       Serial.print ("power"); Serial.print (power);
       Serial.println ("");
       dimEffect = false;
+      
     }
   } //dimEffect
 }//zenDo
@@ -2290,14 +2284,46 @@ void dialMovePointer()
 
 void dialShowColumnBrightness()
 {
-  dialDotsBrightness=float (brightness)/ float (NUM_LEDS2);
-  Serial.println (dialDotsBrightness);
-  for (int i = dialPointer; i < dialDotsBrightness; ++i)
+  column2.clear();
+  dialDotsBrightness=(float (brightness)/float(255))*(float (NUM_LEDS2));
+  //Serial.println (dialDotsBrightness);
+  for (int i = dialPointer; i < dialDotsBrightness+dialPointer; ++i)
   {
-    if (i<=NUM_LEDS2) column2.setPixelColor(i, 255, 0, 0, 0);
-      else
-        column2.setPixelColor(i-NUM_LEDS2, 255, 0, 0, 0);
-    
+    if (i<=NUM_LEDS2)
+    {
+      column2.setPixelColor(i, 0, 0, 0, 255);
+    }
+    else
+    {
+      column2.setPixelColor(i-NUM_LEDS2, 0, 0, 0, 255);
+    }
   }
+  column2.show();
 }
+
+
+
+void dialRed()
+{
+  column2.clear();
+  for (int i = 0; i < NUM_LEDS2; ++i)
+  {
+    column2.setPixelColor(i, 0, 255, 0, 0);
+  }
+  column2.show();
+}
+
+void dialBlue()
+{
+  column2.clear();
+  for (int i=0; i<NUM_LEDS2; ++i)
+  {
+    column2.setPixelColor(i, 0, 0, 255, 0);
+  }
+  column2.show();
+}
+
+
+
+
 
